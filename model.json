@@ -1,0 +1,21 @@
+{
+    "metadata": {
+        "algorithm": "Linear Regression",
+        "trained_on": "1000 synthetic records",
+        "features": [
+            "streak",
+            "delay",
+            "utility",
+            "linkedin"
+        ]
+    },
+    "weights": {
+        "intercept": 502.7317554850472,
+        "coefficients": [
+            9.73945659197983,
+            -11.643578525478716,
+            97.8430572098406,
+            47.4410350295659
+        ]
+    }
+}
