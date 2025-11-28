@@ -1,8 +1,9 @@
-// Global variables to store model weights
-let modelWeights = null;
+let currentModelData = null;
+let charts = {}; // Store chart instances
 
 // DOM Elements
 const els = {
+    modelSelect: document.getElementById('model-selector'),
     streak: document.getElementById('in-streak'),
     delay: document.getElementById('in-delay'),
     utility: document.getElementById('in-utility'),
@@ -12,119 +13,196 @@ const els = {
     valUtility: document.getElementById('val-utility'),
     score: document.getElementById('score-display'),
     risk: document.getElementById('risk-display'),
-    status: document.getElementById('model-status')
+    status: document.getElementById('model-status'),
+    scoreCircle: document.querySelector('.score-circle')
 };
 
-// 1. Initialize Application
+// --- 1. INITIALIZATION ---
 document.addEventListener('DOMContentLoaded', async () => {
     initCharts();
-    await loadModel();
-    updateSimulation(); // Run first calculation
+    
+    // Attempt to load the default selected model
+    await loadModel(els.modelSelect.value);
+
+    // Event Listeners
+    els.modelSelect.addEventListener('change', (e) => loadModel(e.target.value));
+    
+    // Real-time inference on input change
+    [els.streak, els.delay, els.utility, els.linkedin].forEach(el => {
+        el.addEventListener('input', runInference);
+    });
 });
 
-// 2. Load Model from JSON
-async function loadModel() {
+// --- 2. MODEL LOADING ---
+async function loadModel(filename) {
+    els.status.textContent = `Fetching ${filename}...`;
+    els.score.textContent = "...";
+    els.status.style.color = "#94a3b8"; // Reset color
+
     try {
-        const response = await fetch('model.json');
-        if (!response.ok) throw new Error("Failed to load model.json");
+        // Security check for local file opening
+        if (window.location.protocol === 'file:') {
+            throw new Error("CORS_BLOCK");
+        }
+
+        const response = await fetch(filename);
+        if (!response.ok) throw new Error(`HTTP Error: ${response.status}`);
         
-        const data = await response.json();
-        modelWeights = data.weights;
+        currentModelData = await response.json();
         
-        els.status.textContent = "Model Loaded (Linear Regression)";
-        els.status.classList.remove('loading');
-        els.status.classList.add('ready');
-        
-        // Add event listeners only after model loads
-        [els.streak, els.delay, els.utility, els.linkedin].forEach(el => {
-            el.addEventListener('input', updateSimulation);
-        });
-        
+        const typeLabel = currentModelData.type.toUpperCase();
+        els.status.textContent = `✔ Loaded: ${typeLabel} Architecture`;
+        els.status.style.color = "#4ade80"; // Green text
+
+        runInference(); // Run first prediction immediately
+
     } catch (error) {
-        console.error(error);
-        els.status.textContent = "Error Loading Model";
-        // Fallback weights if JSON fails (for demo reliability)
-        modelWeights = {
-            intercept: 500,
-            coefficients: [10, -12, 100, 50] // [streak, delay, utility, linkedin]
-        };
+        console.warn("Model load failed:", error);
+        handleLoadError(error, filename);
     }
 }
 
-// 3. The Inference Engine (Running in Browser)
-function updateSimulation() {
+function handleLoadError(error, filename) {
+    let msg = "Error loading model.";
+    
+    if (error.message === "CORS_BLOCK") {
+        msg = "⚠️ Demo Mode: Local file access blocked. Using fallback logic.";
+    } else {
+        msg = `⚠️ Demo Mode: '${filename}' not found. Using fallback logic.`;
+    }
+    
+    els.status.textContent = msg;
+    els.status.style.color = "#facc15"; // Yellow warning
+
+    // Set a Dummy Model so the UI still works for the user
+    // This ensures the simulator is usable even if they messed up the JSON upload
+    if (filename.includes("linear")) {
+        currentModelData = { type: 'linear', intercept: 500, coefficients: [10, -12, 100, 50] };
+    } else {
+        // Dummy tree-like structure for demo purposes
+        currentModelData = { type: 'demo_fallback' };
+    }
+    runInference();
+}
+
+// --- 3. INFERENCE ENGINE ---
+function runInference() {
+    if (!currentModelData) return;
+
     // Update UI Labels
-    els.valStreak.textContent = els.streak.value;
-    els.valDelay.textContent = els.delay.value;
-    els.valUtility.textContent = els.utility.value + '%';
+    els.valStreak.textContent = `${els.streak.value} mo`;
+    els.valDelay.textContent = `${els.delay.value} days`;
+    els.valUtility.textContent = `${els.utility.value}%`;
 
-    if (!modelWeights) return;
-
-    // A. Extract Features
-    // Note: Must match the order used in Python training!
+    // 1. Prepare Feature Vector [streak, delay, utility, linkedin]
+    // MUST match the order used in Python training
     const features = [
-        parseInt(els.streak.value),         // Feature 0: Streak
-        parseInt(els.delay.value),          // Feature 1: Delay
-        parseInt(els.utility.value) / 100,  // Feature 2: Utility (0-1 float)
-        els.linkedin.checked ? 1 : 0        // Feature 3: LinkedIn (Binary)
+        parseInt(els.streak.value),
+        parseInt(els.delay.value),
+        parseInt(els.utility.value) / 100, // Normalize 0-100 to 0.0-1.0
+        els.linkedin.checked ? 1 : 0
     ];
 
-    // B. Calculate Dot Product (Intercept + W1*X1 + W2*X2...)
-    let score = modelWeights.intercept;
-    features.forEach((val, index) => {
-        score += val * modelWeights.coefficients[index];
-    });
+    let prediction = 500; // Default baseline
 
-    // C. Clamp Score (300 - 900)
-    score = Math.max(300, Math.min(900, Math.round(score)));
-
-    // D. Update UI
-    els.score.textContent = score;
-    updateRiskUI(score);
-}
-
-function updateRiskUI(score) {
-    let riskText = "Medium Risk";
-    let color = "#f59e0b"; // Yellow
-    let bg = "rgba(245, 158, 11, 0.2)";
-
-    if (score >= 750) {
-        riskText = "Low Risk";
-        color = "#22c55e"; // Green
-        bg = "rgba(34, 197, 94, 0.2)";
-    } else if (score < 600) {
-        riskText = "High Risk";
-        color = "#ef4444"; // Red
-        bg = "rgba(239, 68, 68, 0.2)";
+    // 2. Select Logic based on Model Type
+    if (currentModelData.type === 'linear') {
+        prediction = currentModelData.intercept;
+        features.forEach((val, i) => {
+            prediction += val * currentModelData.coefficients[i];
+        });
+    } 
+    else if (currentModelData.type === 'forest') {
+        // Random Forest: Average of all tree predictions
+        let sum = 0;
+        currentModelData.trees.forEach(tree => {
+            sum += traverseTree(tree, features);
+        });
+        prediction = sum / currentModelData.n_estimators;
+    } 
+    else if (currentModelData.type === 'gbm') {
+        // XGBoost/GBM: Base Score + LearningRate * Sum(TreeResiduals)
+        let treeSum = 0;
+        currentModelData.trees.forEach(tree => {
+            treeSum += traverseTree(tree, features);
+        });
+        prediction = currentModelData.init_score + (currentModelData.learning_rate * treeSum);
+    }
+    else if (currentModelData.type === 'demo_fallback') {
+        // Simple hardcoded logic if JSON is missing
+        prediction = 500 + (features[0]*10) - (features[1]*10) + (features[2]*100);
     }
 
-    els.risk.textContent = riskText;
-    els.risk.style.color = color;
-    els.risk.style.backgroundColor = bg;
-    document.querySelector('.score-circle').style.borderColor = color;
+    // 3. Post-Process
+    prediction = Math.round(Math.max(300, Math.min(900, prediction)));
+    
+    // 4. Update UI
+    els.score.textContent = prediction;
+    updateRiskVisuals(prediction);
+    updateCharts(prediction);
 }
 
-// 4. Initialize Charts (Chart.js)
+// --- 4. TREE TRAVERSAL (For Forest & GBM) ---
+function traverseTree(node, features) {
+    // Base case: Leaf node (has 'value' property)
+    if (node.value !== undefined) {
+        return node.value;
+    }
+
+    // Recursive step: Compare feature against threshold
+    const featureVal = features[node.feature_index];
+    if (featureVal <= node.threshold) {
+        return traverseTree(node.left, features);
+    } else {
+        return traverseTree(node.right, features);
+    }
+}
+
+// --- 5. UI UPDATES ---
+function updateRiskVisuals(score) {
+    let color, text, bg;
+
+    if (score >= 750) {
+        color = "#22c55e"; text = "Low Risk (Approved)"; bg = "rgba(34, 197, 94, 0.1)";
+    } else if (score >= 600) {
+        color = "#f59e0b"; text = "Medium Risk (Review)"; bg = "rgba(245, 158, 11, 0.1)";
+    } else {
+        color = "#ef4444"; text = "High Risk (Reject)"; bg = "rgba(239, 68, 68, 0.1)";
+    }
+
+    els.risk.textContent = text;
+    els.risk.style.color = color;
+    els.scoreCircle.style.borderColor = color;
+    els.scoreCircle.style.boxShadow = `0 0 30px ${color}40`; // Soft glow
+}
+
 function initCharts() {
-    // Chart 1: Streak vs Score
-    new Chart(document.getElementById('streakChart'), {
+    // 1. Streak Chart
+    const ctxStreak = document.getElementById('streakChart');
+    charts.streak = new Chart(ctxStreak, {
         type: 'line',
         data: {
-            labels: ['0 mo', '6 mo', '12 mo', '18 mo', '24 mo'],
+            labels: ['0', '6', '12', '18', '24'],
             datasets: [{
-                label: 'TrustScore Projection',
-                data: [500, 560, 620, 680, 740],
+                label: 'Projected Score',
+                data: [500, 550, 600, 650, 700],
                 borderColor: '#2563eb',
+                backgroundColor: 'rgba(37, 99, 235, 0.1)',
                 tension: 0.4,
-                fill: true,
-                backgroundColor: 'rgba(37, 99, 235, 0.1)'
+                fill: true
             }]
         },
-        options: { responsive: true, plugins: { legend: { display: false } } }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: { y: { min: 300, max: 900 } }
+        }
     });
 
-    // Chart 2: Risk Distribution
-    new Chart(document.getElementById('riskChart'), {
+    // 2. Risk Pie Chart
+    const ctxRisk = document.getElementById('riskChart');
+    charts.risk = new Chart(ctxRisk, {
         type: 'doughnut',
         data: {
             labels: ['Low Risk', 'Medium Risk', 'High Risk'],
@@ -134,6 +212,20 @@ function initCharts() {
                 borderWidth: 0
             }]
         },
-        options: { responsive: true }
+        options: {
+            responsive: true,
+            maintainAspectRatio: false
+        }
     });
+}
+
+function updateCharts(currentScore) {
+    // Dynamically update the line chart based on current streak
+    // This is a visual effect to make the dashboard feel alive
+    if (charts.streak) {
+        const base = currentScore - (parseInt(els.streak.value) * 10);
+        const newData = [0, 6, 12, 18, 24].map(m => Math.min(900, base + (m * 10)));
+        charts.streak.data.datasets[0].data = newData;
+        charts.streak.update('none'); // 'none' for smooth animation
+    }
 }
