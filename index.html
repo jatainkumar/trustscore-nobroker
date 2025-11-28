@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NoBroker TrustScore Report</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Import Chart.js for Visualizations -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Import Phosphor Icons -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="container header-content">
+            <div class="brand">
+                <div class="logo">NB</div>
+                <div>
+                    <h1>NoBroker TrustScore</h1>
+                    <span class="badge">Product Proposal</span>
+                </div>
+            </div>
+            <a href="#simulator" class="btn-primary">Try Simulator</a>
+        </div>
+    </header>
+
+    <main class="container">
+        
+        <!-- Executive Summary -->
+        <section class="summary-card">
+            <h2>Solving the "Trust Deficit" in Rental Markets</h2>
+            <p>A proposal to introduce an <strong>Alternative Credit Score</strong> for Indian tenants. By leveraging payment history, digital footprints, and social signals, NoBroker can empower millions of "credit-invisible" tenants.</p>
+            
+            <div class="metrics-grid">
+                <div class="metric-box green">
+                    <h3>0.85</h3>
+                    <p>Target AUC Accuracy</p>
+                </div>
+                <div class="metric-box blue">
+                    <h3>400M+</h3>
+                    <p>Target User Base</p>
+                </div>
+                <div class="metric-box purple">
+                    <h3>-30%</h3>
+                    <p>Deposit Reduction</p>
+                </div>
+                <div class="metric-box orange">
+                    <h3>+15%</h3>
+                    <p>Retention Uplift</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Charts Section -->
+        <section class="charts-section">
+            <div class="chart-card">
+                <h3>Payment Streak vs. TrustScore</h3>
+                <canvas id="streakChart"></canvas>
+            </div>
+            <div class="chart-card">
+                <h3>projected Risk Distribution</h3>
+                <canvas id="riskChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Live Simulator -->
+        <section id="simulator" class="simulator-section">
+            <div class="sim-header">
+                <i class="ph ph-cpu"></i>
+                <h2>Live AI Model Simulator</h2>
+                <span id="model-status" class="status-badge loading">Loading Model...</span>
+            </div>
+
+            <div class="sim-grid">
+                <!-- Controls -->
+                <div class="sim-controls">
+                    <div class="control-group">
+                        <label>NoBroker Pay Streak (Months) <span id="val-streak">6</span></label>
+                        <input type="range" id="in-streak" min="0" max="24" value="6">
+                    </div>
+
+                    <div class="control-group">
+                        <label>Avg Payment Delay (Days) <span id="val-delay">0</span></label>
+                        <input type="range" id="in-delay" min="-5" max="30" value="0">
+                        <small>Negative values indicate early payment</small>
+                    </div>
+
+                    <div class="control-group">
+                        <label>Utility Bill Consistency <span id="val-utility">90%</span></label>
+                        <input type="range" id="in-utility" min="0" max="100" value="90">
+                    </div>
+
+                    <div class="control-group checkbox-group">
+                        <label for="in-linkedin">LinkedIn Verified</label>
+                        <input type="checkbox" id="in-linkedin" checked>
+                    </div>
+                </div>
+
+                <!-- Result Display -->
+                <div class="sim-result">
+                    <div class="score-circle">
+                        <span id="score-display">---</span>
+                        <small>TrustScore</small>
+                    </div>
+                    <div id="risk-display" class="risk-label">---</div>
+                    <p class="explanation">
+                        Calculated in real-time using weights loaded from <code>model.json</code>.
+                    </p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Report Details -->
+        <section class="report-text">
+            <h3>1. Problem Statement</h3>
+            <p>The Indian rental market suffers from a massive information asymmetry. Landlords demand 6-10 months of deposit because they cannot verify a tenant's reliability. Traditional CIBIL scores do not track rental behavior.</p>
+            
+            <h3>2. The AI Solution</h3>
+            <p>We trained a Linear Regression model (see Simulator above) that ingests:</p>
+            <ul>
+                <li><strong>Payment History:</strong> Data from NoBroker Pay transactions.</li>
+                <li><strong>Digital Footprint:</strong> Utility bill payments via Account Aggregator.</li>
+                <li><strong>Social Signals:</strong> Employment verification via LinkedIn.</li>
+            </ul>
+        </section>
+
+    </main>
+
+    <footer>
+        <p>Generated by Gemini • NoBroker Product Proposal Demo</p>
+    </footer>
+
+    <script src="script.js"></script>
+</body>
+</html>
